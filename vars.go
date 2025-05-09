@@ -2,15 +2,11 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"os"
 )
 
-// TODO: this is for easier dev, will be changed
-const configDir = "./config"
-
-var varIDCounter int
+var varIDCounter int = 0
 
 type Var struct {
 	Id          int
@@ -20,19 +16,24 @@ type Var struct {
 }
 
 func NewVar(key, val, description string) Var {
-	varIDCounter++
-	return Var{
+	n := Var{
 		Id:          varIDCounter,
 		Key:         key,
 		Val:         val,
 		Description: description,
 	}
+	varIDCounter++
+	return n
 }
 
 type Vars []Var
 
 func NewVars() Vars {
 	return Vars{}
+}
+
+func (v *Vars) All() []Var {
+	return *v
 }
 
 func (v *Vars) Get(key string) string {
@@ -64,29 +65,38 @@ func (v *Vars) Set(key, val, description string) {
 	*v = append(*v, NewVar(key, val, description))
 }
 
+func (v *Vars) GetIdFromKey(key string) int {
+	for _, v := range *v {
+		if v.Key == key {
+			return v.Id
+		}
+	}
+	return -1
+}
+
 // Save Vars to user's config folder
 func (v *Vars) Save() error {
-	err := os.MkdirAll(configDir, os.ModePerm)
+	err := os.MkdirAll(ConfigDir, os.ModePerm)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		return &UserConfigError{Err: err}
 	}
-	file, err := os.Create(configDir + "/vars.json")
+	file, err := os.Create(ConfigDir + "/vars.json")
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		return &UserConfigError{Err: err}
 	}
 	defer file.Close()
 	encoder := json.NewEncoder(file)
 	encoder.SetIndent("", "  ")
 	err = encoder.Encode(v)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		return &UserConfigError{Err: err}
 	}
 	return nil
 }
 
 // Load Vars from user's config folder
 func (v *Vars) Load() error {
-	file, err := os.Open(configDir + "/vars.json")
+	file, err := os.Open(ConfigDir + "/vars.json")
 	if err != nil {
 		slog.Debug("User config file not found, creating new one")
 		v.Save()
@@ -96,7 +106,7 @@ func (v *Vars) Load() error {
 	decoder := json.NewDecoder(file)
 	err = decoder.Decode(v)
 	if err != nil {
-		return err
+		return &UserConfigError{Err: err}
 	}
 	return nil
 }
