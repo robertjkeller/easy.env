@@ -4,54 +4,181 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
-// Model is the data structure that will hold the state of our program.
+// TODO: this is for easier dev, will be changed
+const ConfigDir = "./config"
+
+var (
+	focusedColStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder(), true).
+			Padding(1).
+			BorderForeground(lipgloss.Color("69"))
+	blurredColStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder(), true).
+			Padding(1).
+			BorderForeground(lipgloss.Color("253"))
+	focusedVarStyle = lipgloss.NewStyle().
+			Background(lipgloss.Color("69"))
+	blurredVarStyle = lipgloss.NewStyle().
+			Background(lipgloss.Color("253"))
+)
+
 type model struct {
-	// Add any fields you need for your program's state here.
+	Vars              *Vars
+	Collections       Collections
+	varsList          list.Model
+	colList           list.Model
+	focusedList       int // 0 = vars, 1 = collections
+	focusedCollection int
 }
 
-// Init initializes the program's state.
+type item struct {
+	title, desc string
+}
+
+func (i item) Title() string       { return i.title }
+func (i item) Description() string { return i.desc }
+func (i item) FilterValue() string { return i.title }
+
+func newModel(vars *Vars, cols Collections) model {
+	// build vars list
+	var varItems []list.Item
+	for _, v := range vars.All() {
+		varItems = append(varItems, item{title: v.Key, desc: v.Description})
+	}
+	vl := list.New(varItems, list.NewDefaultDelegate(), 30, 14)
+	vl.Title = "Vars"
+
+	// build collections list
+	var colItems []list.Item
+	for _, c := range cols {
+		colItems = append(colItems, item{title: c.Name, desc: c.Description})
+	}
+	cl := list.New(colItems, list.NewDefaultDelegate(), 30, 14)
+	cl.Title = "Collections"
+
+	return model{
+		Vars:        vars,
+		Collections: cols,
+		varsList:    vl,
+		colList:     cl,
+		focusedList: 0,
+	}
+}
+
 func (m model) Init() tea.Cmd {
-	// This function is called when the program starts.
-	// You can use it to initialize your program's state.
 	return nil
 }
 
-// Update updates the program's state based on user input.
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	// This function is called whenever a message is received.
-	// You can use it to update your program's state based on user input.
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
+	if wsMsg, ok := msg.(tea.WindowSizeMsg); ok {
+		// resize the lists to fit the window
+		width, height := wsMsg.Width, wsMsg.Height
+		m.varsList.SetSize(width/2-1, height-5)
+		m.colList.SetSize(width/2-1, height-5)
+	}
+	// allow quitting or focus‐switching
+	if key, ok := msg.(tea.KeyMsg); ok {
+		switch key.String() {
 		case "ctrl+c", "q":
 			return m, tea.Quit
+		case "tab", "shift+tab":
+			m.focusedList = (m.focusedList + 1) % 2
+			return m, nil
 		}
 	}
-	return m, nil
+
+	var cmd tea.Cmd
+	if m.focusedList == 0 {
+		m.varsList, cmd = m.varsList.Update(msg)
+	} else {
+		m.colList, cmd = m.colList.Update(msg)
+
+		// ──────── HIGHLIGHT AFTER UPDATING ────────
+		idx := m.colList.Index()
+		varIds := m.Collections[idx].GetVarIds()
+
+		// grab the original vars so we can reset titles
+		rawVars := m.Vars.All()
+
+		// 1) reset *all* vars back to un-styled
+		for i := range rawVars {
+			m.varsList.SetItem(i, item{
+				title: rawVars[i].Key,
+				desc:  rawVars[i].Description,
+			})
+		}
+
+		// 2) restyle *each* var in this collection
+		for _, vid := range varIds {
+			if vid < len(rawVars) {
+				m.varsList.SetItem(vid, item{
+					title: focusedVarStyle.Render(rawVars[vid].Key),
+					desc:  rawVars[vid].Description,
+				})
+			}
+		}
+	}
+
+	return m, cmd
 }
 
-// View renders the program's state to the terminal.
 func (m model) View() string {
-	// You can use it to display the current state of your program.
-	return "Press Ctrl+C or 'q' to quit.\n"
+	var left, right string
+	if m.focusedList == 0 {
+		left = focusedColStyle.Render(m.varsList.View())
+		right = blurredColStyle.Render(m.colList.View())
+	} else {
+		left = blurredColStyle.Render(m.varsList.View())
+		right = focusedColStyle.Render(m.colList.View())
+	}
+	return lipgloss.JoinHorizontal(
+		lipgloss.Top,
+		left,
+		right,
+	)
 }
 
 // main is the entry point of the program.
 func main() {
-	fmt.Println("Hello, Bubble Tea!")
-	// Create a new Bubble Tea program
-	p := tea.NewProgram(model{})
-	// Start the program
+	// Create mock Vars and Collections
+	vars := NewVars()
+	vars.Set("key1", "value1", "description1")
+	vars.Set("key2", "value2", "description2")
+	vars.Set("key3", "value3", "description3")
+	vars.Set("key4", "value4", "description4")
+
+	collections := Collections{
+		NewCollection("Collection 1", "Description 1"),
+		NewCollection("Collection 2", "Description 2"),
+		NewCollection("Collection 3", "Description 3"),
+	}
+	// Add Vars to Collections
+	collections[0].AddVar(vars.GetIdFromKey("key1"))
+	collections[0].AddVar(vars.GetIdFromKey("key2"))
+	collections[1].AddVar(vars.GetIdFromKey("key3"))
+	collections[1].AddVar(vars.GetIdFromKey("key4"))
+	collections[2].AddVar(vars.GetIdFromKey("key1"))
+	collections[2].AddVar(vars.GetIdFromKey("key3"))
+
+	// Start Bubble Tea with both lists
+	p := tea.NewProgram(newModel(&vars, collections))
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Error starting program: %v\n", err)
 		os.Exit(1)
 	}
-	// The program will run until it is stopped by the user
-	// or an error occurs. The program will exit with a status code of 0
-	// if it completes successfully, or a non-zero status code if an error
-	// occurs.
-	os.Exit(0)
+
+	// On quit, persist to disk
+	if err := vars.Save(); err != nil {
+		fmt.Printf("Error saving vars: %v\n", err)
+		os.Exit(1)
+	}
+	if err := collections.Save(); err != nil {
+		fmt.Printf("Error saving collections: %v\n", err)
+		os.Exit(1)
+	}
 }
