@@ -19,12 +19,18 @@ var (
 			Border(lipgloss.RoundedBorder(), true).
 			Padding(1).
 			BorderForeground(lipgloss.Color("69"))
+
 	blurredColStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder(), true).
 			Padding(1).
 			BorderForeground(lipgloss.Color("253"))
-	focusedVarStyle = lipgloss.NewStyle().
-			Background(lipgloss.Color("69"))
+
+	selectedVarStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("86")). // green
+				Bold(true)
+
+	unselectedVarStyle = lipgloss.NewStyle().
+				Faint(true) // dim gray
 )
 
 type model struct {
@@ -131,23 +137,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) applyVarHighlights(ci int) model {
 	raw := m.Vars.All()
 	ids := m.Collections[ci].GetVarIds()
-
-	// 1) reset all titles
-	for i := range raw {
-		m.varsList.SetItem(i, item{
-			title: raw[i].Key,
-			desc:  raw[i].Description,
-		})
+	sel := make(map[int]struct{}, len(ids))
+	for _, id := range ids {
+		sel[id] = struct{}{}
 	}
 
-	// 2) highlight each member
-	for _, vid := range ids {
-		if vid < len(raw) {
-			m.varsList.SetItem(vid, item{
-				title: focusedVarStyle.Render(raw[vid].Key),
-				desc:  raw[vid].Description,
-			})
+	// rebuild every item with a checkbox + color
+	for i := range raw {
+		var style lipgloss.Style
+		if _, ok := sel[i]; ok {
+			style = selectedVarStyle
+		} else {
+			style = unselectedVarStyle
 		}
+
+		m.varsList.SetItem(i, item{
+			title: style.Render(raw[i].Key),
+			desc:  raw[i].Description,
+		})
 	}
 	return m
 }
