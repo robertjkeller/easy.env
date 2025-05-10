@@ -147,23 +147,40 @@ func (m model) View() string {
 func main() {
 	// Create mock Vars and Collections
 	vars := NewVars()
-	vars.Set("key1", "value1", "description1")
-	vars.Set("key2", "value2", "description2")
-	vars.Set("key3", "value3", "description3")
-	vars.Set("key4", "value4", "description4")
+	vars.Add("AWS_ACCOUNT", "123456789", "dev environment")
+	vars.Add("DB_HOST", "db-prod.example.com", "Primary database host")
+	vars.Add("DB_PORT", "5432", "Database port number")
+	vars.Add("DB_USER", "prod_user", "Database username")
+	vars.Add("DB_PASSWORD", "prod_password", "Production database password")
+	vars.Add("DB_NAME", "prod_db", "Production database name")
+	vars.Add("AWS_ACCOUNT", "234567890", "Production AWS account ID")
+	vars.Add("S3_BUCKET", "myapp-prod-bucket", "Primary S3 bucket name")
+	vars.Add("REDIS_URL", "redis://cache.prod:6379", "Redis cache connection URL")
+	vars.Add("LOG_LEVEL", "info", "Application log verbosity level")
 
 	collections := Collections{
-		NewCollection("Collection 1", "Description 1"),
-		NewCollection("Collection 2", "Description 2"),
-		NewCollection("Collection 3", "Description 3"),
+		NewCollection("Development Environment", "Local development variables"),
+		NewCollection("Staging Environment", "Staging server configuration"),
+		NewCollection("Production Environment", "Production server settings"),
+		NewCollection("Dev PostgreSQL", "Vars for Dev Postgres DB"),
+		NewCollection("Monitoring & Logging", "Log levels / telemetry endpoints"),
 	}
 	// Add Vars to Collections
-	collections[0].AddVar(vars.GetIdFromKey("key1"))
-	collections[0].AddVar(vars.GetIdFromKey("key2"))
-	collections[1].AddVar(vars.GetIdFromKey("key3"))
-	collections[1].AddVar(vars.GetIdFromKey("key4"))
-	collections[2].AddVar(vars.GetIdFromKey("key1"))
-	collections[2].AddVar(vars.GetIdFromKey("key3"))
+	collections[0].AddVar(0)
+	collections[0].AddVar(1)
+	collections[1].AddVar(2)
+	collections[1].AddVar(3)
+	collections[2].AddVar(0)
+	collections[2].AddVar(2)
+	collections[3].AddVar(1)
+	collections[3].AddVar(3)
+	collections[3].AddVar(4)
+	collections[3].AddVar(6)
+	collections[3].AddVar(9)
+	collections[4].AddVar(5)
+	collections[4].AddVar(7)
+	collections[4].AddVar(8)
+	collections[4].AddVar(9)
 
 	// Start Bubble Tea with both lists
 	p := tea.NewProgram(newModel(&vars, collections))
