@@ -54,6 +54,10 @@ func (v *Vars) GetDescription(key string) string {
 	return ""
 }
 
+func (v *Vars) Add(key, val, description string) {
+	*v = append(*v, NewVar(key, val, description))
+}
+
 func (v *Vars) Set(key, val, description string) {
 	for i, currentVar := range *v {
 		if currentVar.Key == key {
