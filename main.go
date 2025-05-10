@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	"slices"
+
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -23,12 +25,10 @@ var (
 			BorderForeground(lipgloss.Color("253"))
 	focusedVarStyle = lipgloss.NewStyle().
 			Background(lipgloss.Color("69"))
-	blurredVarStyle = lipgloss.NewStyle().
-			Background(lipgloss.Color("253"))
 )
 
 type model struct {
-	Vars              *Vars
+	Vars              Vars
 	Collections       Collections
 	varsList          list.Model
 	colList           list.Model
@@ -44,7 +44,7 @@ func (i item) Title() string       { return i.title }
 func (i item) Description() string { return i.desc }
 func (i item) FilterValue() string { return i.title }
 
-func newModel(vars *Vars, cols Collections) model {
+func newModel(vars Vars, cols Collections) model {
 	// build vars list
 	var varItems []list.Item
 	for _, v := range vars.All() {
@@ -94,37 +94,62 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	var cmd tea.Cmd
 	if m.focusedList == 0 {
+		// update the vars list…
 		m.varsList, cmd = m.varsList.Update(msg)
+
+		// if Enter pressed while varsList is focused, toggle membership
+		if key, ok := msg.(tea.KeyMsg); ok && key.String() == "enter" {
+			vid := m.varsList.Index() // selected var index
+			ci := m.focusedCollection // current collection index
+			ids := m.Collections[ci].GetVarIds()
+			// see if vid is already in this collection
+			found := slices.Contains(ids, vid)
+			if found {
+				m.Collections[ci].RemoveVar(vid) // you'll need a RemoveVar method
+				m.Collections.Save()
+			} else {
+				m.Collections[ci].AddVar(vid)
+				m.Collections.Save()
+			}
+			// **re‐apply highlighting immediately**
+			m = m.applyVarHighlights(m.focusedCollection)
+		}
 	} else {
+		// update the collections list…
 		m.colList, cmd = m.colList.Update(msg)
 
-		// ──────── HIGHLIGHT AFTER UPDATING ────────
-		idx := m.colList.Index()
-		varIds := m.Collections[idx].GetVarIds()
-
-		// grab the original vars so we can reset titles
-		rawVars := m.Vars.All()
-
-		// 1) reset *all* vars back to un-styled
-		for i := range rawVars {
-			m.varsList.SetItem(i, item{
-				title: rawVars[i].Key,
-				desc:  rawVars[i].Description,
-			})
-		}
-
-		// 2) restyle *each* var in this collection
-		for _, vid := range varIds {
-			if vid < len(rawVars) {
-				m.varsList.SetItem(vid, item{
-					title: focusedVarStyle.Render(rawVars[vid].Key),
-					desc:  rawVars[vid].Description,
-				})
-			}
-		}
+		// remember which collection is selected
+		m.focusedCollection = m.colList.Index()
+		// **apply highlighting when you move the collection**
+		m = m.applyVarHighlights(m.focusedCollection)
 	}
 
 	return m, cmd
+}
+
+// add this helper *below* your Update:
+func (m model) applyVarHighlights(ci int) model {
+	raw := m.Vars.All()
+	ids := m.Collections[ci].GetVarIds()
+
+	// 1) reset all titles
+	for i := range raw {
+		m.varsList.SetItem(i, item{
+			title: raw[i].Key,
+			desc:  raw[i].Description,
+		})
+	}
+
+	// 2) highlight each member
+	for _, vid := range ids {
+		if vid < len(raw) {
+			m.varsList.SetItem(vid, item{
+				title: focusedVarStyle.Render(raw[vid].Key),
+				desc:  raw[vid].Description,
+			})
+		}
+	}
+	return m
 }
 
 func (m model) View() string {
@@ -183,7 +208,7 @@ func main() {
 	collections[4].AddVar(9)
 
 	// Start Bubble Tea with both lists
-	p := tea.NewProgram(newModel(&vars, collections))
+	p := tea.NewProgram(newModel(vars, collections))
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Error starting program: %v\n", err)
 		os.Exit(1)
