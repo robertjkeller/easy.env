@@ -65,7 +65,7 @@ func newModel(vars Vars, cols Collections) model {
 	// build vars list
 	var varItems []list.Item
 	for _, v := range vars.All() {
-		varItems = append(varItems, item{title: v.Key, desc: v.Description})
+		varItems = append(varItems, item{title: v.Key, desc: v.Val})
 	}
 	vl := list.New(varItems, list.NewDefaultDelegate(), 30, 14)
 	vl.Title = "Vars"
@@ -188,7 +188,7 @@ func (m model) applyVarHighlights(ci int) model {
 
 		m.varsList.SetItem(i, item{
 			title: style.Render(raw[i].Key),
-			desc:  raw[i].Description,
+			desc:  raw[i].Val,
 		})
 	}
 	return m
