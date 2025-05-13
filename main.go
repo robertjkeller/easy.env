@@ -6,6 +6,7 @@ import (
 
 	"slices"
 
+	"github.com/charmbracelet/bubbles/filepicker"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -38,7 +39,8 @@ type model struct {
 	Collections       Collections
 	varsList          list.Model
 	colList           list.Model
-	focusedList       int // 0 = vars, 1 = collections
+	filePicker        filepicker.Model
+	focusedList       int // 0 = vars, 1 = collections, 2 = file picker
 	focusedCollection int
 }
 
@@ -67,48 +69,67 @@ func newModel(vars Vars, cols Collections) model {
 	cl := list.New(colItems, list.NewDefaultDelegate(), 30, 14)
 	cl.Title = "Collections"
 
+	// set up the file picker
+	fp := filepicker.New()
+	fp.SetHeight(14) // Add initial height, will be resized in Update
+
 	return model{
 		Vars:        vars,
 		Collections: cols,
 		varsList:    vl,
 		colList:     cl,
+		filePicker:  fp,
 		focusedList: 0,
 	}
 }
 
 func (m model) Init() tea.Cmd {
-	return nil
+	// This is correct - keep this to start loading files
+	return m.filePicker.Init()
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if wsMsg, ok := msg.(tea.WindowSizeMsg); ok {
-		// resize the lists to fit the window
-		width, height := wsMsg.Width, wsMsg.Height
-		m.varsList.SetSize(width/2-1, height-5)
-		m.colList.SetSize(width/2-1, height-5)
-	}
-	// allow quitting or focus‐switching
-	if key, ok := msg.(tea.KeyMsg); ok {
+	var cmds []tea.Cmd
+
+	// 1) window‐resize + quit/focus logic
+	if ws, ok := msg.(tea.WindowSizeMsg); ok {
+		w, h := ws.Width, ws.Height
+		m.varsList.SetSize(w/3-1, h-5)
+		m.colList.SetSize(w/3-1, h-5)
+
+		m.filePicker.SetHeight(h - 6)
+		_, cmd := m.filePicker.Update(ws)
+		cmds = append(cmds, cmd)
+	} else if key, ok := msg.(tea.KeyMsg); ok {
+		// Handle global keys first
 		switch key.String() {
 		case "ctrl+c", "q":
 			return m, tea.Quit
 		case "tab", "shift+tab":
-			m.focusedList = (m.focusedList + 1) % 2
+			m.focusedList = (m.focusedList + 1) % 3
 			return m, nil
 		}
+
+		if m.focusedList == 2 {
+			var cmd tea.Cmd
+			m.filePicker, cmd = m.filePicker.Update(key)
+			cmds = append(cmds, cmd)
+		}
+	} else {
+		var cmd tea.Cmd
+		m.filePicker, cmd = m.filePicker.Update(msg)
+		cmds = append(cmds, cmd)
 	}
 
-	var cmd tea.Cmd
-	if m.focusedList == 0 {
-		// update the vars list…
-		m.varsList, cmd = m.varsList.Update(msg)
+	var cmdSub tea.Cmd
+	switch m.focusedList {
+	case 0:
+		m.varsList, cmdSub = m.varsList.Update(msg)
 
-		// if Enter pressed while varsList is focused, toggle membership
 		if key, ok := msg.(tea.KeyMsg); ok && key.String() == "enter" {
-			vid := m.varsList.Index() // selected var index
-			ci := m.focusedCollection // current collection index
+			vid := m.varsList.Index()
+			ci := m.focusedCollection
 			ids := m.Collections[ci].GetVarIds()
-			// see if vid is already in this collection
 			found := slices.Contains(ids, vid)
 			if found {
 				m.Collections[ci].RemoveVar(vid) // you'll need a RemoveVar method
@@ -117,23 +138,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Collections[ci].AddVar(vid)
 				m.Collections.Save()
 			}
-			// **re‐apply highlighting immediately**
 			m = m.applyVarHighlights(m.focusedCollection)
 		}
-	} else {
-		// update the collections list…
-		m.colList, cmd = m.colList.Update(msg)
+	case 1:
+		m.colList, cmdSub = m.colList.Update(msg)
 
-		// remember which collection is selected
 		m.focusedCollection = m.colList.Index()
-		// **apply highlighting when you move the collection**
 		m = m.applyVarHighlights(m.focusedCollection)
+	case 2:
 	}
 
-	return m, cmd
+	if cmdSub != nil {
+		cmds = append(cmds, cmdSub)
+	}
+
+	return m, tea.Batch(cmds...)
 }
 
-// add this helper *below* your Update:
 func (m model) applyVarHighlights(ci int) model {
 	raw := m.Vars.All()
 	ids := m.Collections[ci].GetVarIds()
@@ -142,7 +163,6 @@ func (m model) applyVarHighlights(ci int) model {
 		sel[id] = struct{}{}
 	}
 
-	// rebuild every item with a checkbox + color
 	for i := range raw {
 		var style lipgloss.Style
 		if _, ok := sel[i]; ok {
@@ -160,17 +180,24 @@ func (m model) applyVarHighlights(ci int) model {
 }
 
 func (m model) View() string {
-	var left, right string
+	var left, middle, right string
 	if m.focusedList == 0 {
 		left = focusedColStyle.Render(m.varsList.View())
-		right = blurredColStyle.Render(m.colList.View())
+		middle = blurredColStyle.Render(m.colList.View())
+		right = blurredColStyle.Render(m.filePicker.View())
+	} else if m.focusedList == 1 {
+		left = blurredColStyle.Render(m.varsList.View())
+		middle = focusedColStyle.Render(m.colList.View())
+		right = blurredColStyle.Render(m.filePicker.View())
 	} else {
 		left = blurredColStyle.Render(m.varsList.View())
-		right = focusedColStyle.Render(m.colList.View())
+		middle = blurredColStyle.Render(m.colList.View())
+		right = focusedColStyle.Render(m.filePicker.View())
 	}
 	return lipgloss.JoinHorizontal(
 		lipgloss.Top,
 		left,
+		middle,
 		right,
 	)
 }
