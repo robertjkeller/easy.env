@@ -221,6 +221,13 @@ func main() {
 	vars.Add("S3_BUCKET", "myapp-prod-bucket", "Primary S3 bucket name")
 	vars.Add("REDIS_URL", "redis://cache.prod:6379", "Redis cache connection URL")
 	vars.Add("LOG_LEVEL", "info", "Application log verbosity level")
+	vars.Add("TELEMETRY_URL", "https://telemetry.example.com", "Telemetry endpoint URL")
+	vars.Add("TELEMETRY_TOKEN", "abc123", "Telemetry authentication token")
+	vars.Add("TELEMETRY_ENABLED", "true", "Enable telemetry collection")
+	vars.Add("TELEMETRY_INTERVAL", "60", "Telemetry data collection interval in seconds")
+	vars.Add("TELEMETRY_DEBUG", "false", "Enable debug mode for telemetry")
+	vars.Add("TELEMETRY_LOG_LEVEL", "debug", "Log level for telemetry data")
+	vars.Add("TELEMETRY_LOG_FILE", "/var/log/telemetry.log", "File path for telemetry logs")
 
 	collections := Collections{
 		NewCollection("Development Environment", "Local development variables"),
@@ -245,6 +252,12 @@ func main() {
 	collections[4].AddVar(7)
 	collections[4].AddVar(8)
 	collections[4].AddVar(9)
+	collections[4].AddVar(10)
+	collections[4].AddVar(11)
+	collections[4].AddVar(12)
+	collections[4].AddVar(13)
+	collections[4].AddVar(14)
+	collections[4].AddVar(15)
 
 	// Start Bubble Tea with both lists
 	p := tea.NewProgram(newModel(vars, collections))
