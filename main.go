@@ -111,6 +111,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if m.focusedList == 2 {
+			// Add your "w" key handling here
+			if key.String() == "w" {
+				m.Collections[m.colList.Index()].WriteToEnvFile(m.filePicker.CurrentDirectory)
+			}
+
 			var cmd tea.Cmd
 			m.filePicker, cmd = m.filePicker.Update(key)
 			cmds = append(cmds, cmd)

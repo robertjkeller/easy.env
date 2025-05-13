@@ -54,6 +54,15 @@ func (v *Vars) GetDescription(key string) string {
 	return ""
 }
 
+func GetVarById(vars Vars, id int) *Var {
+	for i, v := range vars {
+		if v.Id == id {
+			return &vars[i]
+		}
+	}
+	return nil
+}
+
 func (v *Vars) Add(key, val, description string) {
 	*v = append(*v, NewVar(key, val, description))
 }
