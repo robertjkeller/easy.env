@@ -52,6 +52,15 @@ func (i item) Title() string       { return i.title }
 func (i item) Description() string { return i.desc }
 func (i item) FilterValue() string { return i.title }
 
+func UserHomeDir() string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Printf("Error getting user home directory: %v\n", err)
+		return ""
+	}
+	return homeDir
+}
+
 func newModel(vars Vars, cols Collections) model {
 	// build vars list
 	var varItems []list.Item
@@ -71,6 +80,7 @@ func newModel(vars Vars, cols Collections) model {
 
 	// set up the file picker
 	fp := filepicker.New()
+	fp.CurrentDirectory = UserHomeDir()
 	fp.SetHeight(14) // Add initial height, will be resized in Update
 
 	return model{
