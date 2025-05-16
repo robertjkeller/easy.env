@@ -73,13 +73,16 @@ func newModel(vars Vars, cols Collections) model {
 	// build collections list
 	var colItems []list.Item
 	for _, c := range cols {
-		colItems = append(colItems, item{title: c.Name, desc: c.Description})
+		colItems = append(colItems, item{title: c.Name, desc: c.Filename})
 	}
 	cl := list.New(colItems, list.NewDefaultDelegate(), 30, 14)
 	cl.Title = "Collections"
 
 	// set up the file picker
 	fp := filepicker.New()
+	fp.ShowPermissions = false
+	fp.ShowSize = false
+	fp.ShowHidden = true
 	fp.CurrentDirectory = UserHomeDir()
 	fp.SetHeight(14) // Add initial height, will be resized in Update
 
@@ -109,6 +112,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		m.filePicker.SetHeight(h - 6)
 		_, cmd := m.filePicker.Update(ws)
+		m.applyVarHighlights(m.focusedCollection)
 		cmds = append(cmds, cmd)
 	} else if key, ok := msg.(tea.KeyMsg); ok {
 		// Handle global keys first
