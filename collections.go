@@ -8,17 +8,17 @@ import (
 )
 
 type Collection struct {
-	Name        string
-	Description string
-	VarIds      []int
+	Name     string
+	Filename string
+	VarIds   []int
 }
 
 type Collections []Collection
 
 func NewCollection(name, description string) Collection {
 	return Collection{
-		Name:        name,
-		Description: description,
+		Name:     name,
+		Filename: description,
 	}
 }
 func (c *Collection) AddVar(varID int) {
@@ -56,15 +56,15 @@ func (c *Collection) GetName() string {
 }
 
 func (c *Collection) GetDescription() string {
-	return c.Description
+	return c.Filename
 }
 
 func (c *Collection) SetName(name string) {
 	c.Name = name
 }
 
-func (c *Collection) SetDescription(description string) {
-	c.Description = description
+func (c *Collection) SetFilename(filename string) {
+	c.Filename = filename
 }
 
 func (c *Collection) GetVarID(index int) int {
