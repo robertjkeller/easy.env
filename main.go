@@ -240,11 +240,11 @@ func main() {
 	vars.Add("TELEMETRY_LOG_FILE", "/var/log/telemetry.log", "File path for telemetry logs")
 
 	collections := Collections{
-		NewCollection("Development Environment", "Local development variables"),
-		NewCollection("Staging Environment", "Staging server configuration"),
-		NewCollection("Production Environment", "Production server settings"),
-		NewCollection("Dev PostgreSQL", "Vars for Dev Postgres DB"),
-		NewCollection("Monitoring & Logging", "Log levels / telemetry endpoints"),
+		NewCollection("Dev_Env", ".env"),
+		NewCollection("Staging_Env", ".env.staging"),
+		NewCollection("Production_Env", ".env"),
+		NewCollection("Dev_PostgreSQL", ".env"),
+		NewCollection("Monitoring_Logging", ".env"),
 	}
 	// Add Vars to Collections
 	collections[0].AddVar(0)
