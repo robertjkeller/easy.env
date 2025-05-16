@@ -123,7 +123,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.focusedList == 2 {
 			// Add your "w" key handling here
 			if key.String() == "w" {
-				m.Collections[m.colList.Index()].WriteToEnvFile(m.filePicker.CurrentDirectory)
+				c := m.Collections[m.colList.Index()]
+				c.WriteToEnvFile(m.filePicker.CurrentDirectory, c.Filename)
+			}
+
+			if key.String() == "s" {
+				err := m.Collections[m.colList.Index()].WriteToSymlink(m.filePicker.CurrentDirectory)
+				if err != nil {
+					fmt.Printf("Error creating symlink: %v\n", err)
+				}
 			}
 
 			var cmd tea.Cmd

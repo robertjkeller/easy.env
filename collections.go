@@ -115,8 +115,8 @@ func (c *Collections) Load() error {
 	return nil
 }
 
-func (c *Collection) WriteToEnvFile(dir string) error {
-	collectionFile, err := os.Create(dir + "/" + c.Name + ".env")
+func (c *Collection) WriteToEnvFile(dir, filename string) error {
+	collectionFile, err := os.Create(dir + "/" + filename)
 	if err != nil {
 		return &UserConfigError{Err: err}
 	}
@@ -127,5 +127,34 @@ func (c *Collection) WriteToEnvFile(dir string) error {
 			return &UserConfigError{Err: err}
 		}
 	}
+	return nil
+}
+
+func (c *Collection) WriteToSymlink(dir string) error {
+	err := os.MkdirAll(ConfigDir+"/env_files", os.ModePerm)
+	if err != nil {
+		return &UserConfigError{Err: err}
+	}
+
+	err = c.WriteToEnvFile(ConfigDir+"/env_files", c.Name+".env")
+	if err != nil {
+		return &UserConfigError{Err: err}
+	}
+
+	symlinkTargetPath := dir + "/" + c.Filename
+	if _, statErr := os.Stat(symlinkTargetPath); statErr == nil {
+		err = os.Remove(symlinkTargetPath)
+		if err != nil {
+			return &UserConfigError{Err: err}
+		}
+	} else if !os.IsNotExist(statErr) {
+		return &UserConfigError{Err: statErr}
+	}
+
+	err = os.Symlink(ConfigDir+"/env_files/"+c.Name+".env", symlinkTargetPath)
+	if err != nil {
+		return &UserConfigError{Err: err}
+	}
+
 	return nil
 }
