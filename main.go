@@ -84,7 +84,7 @@ func newModel(vars Vars, cols Collections) model {
 	fp.ShowSize = false
 	fp.ShowHidden = true
 	fp.CurrentDirectory = UserHomeDir()
-	fp.SetHeight(14) // Add initial height, will be resized in Update
+	fp.SetHeight(14)
 
 	return model{
 		Vars:        vars,
@@ -110,7 +110,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		m.varsList.SetSize(colWidth, h-5)
 		m.colList.SetSize(colWidth, h-5)
-		m.filePicker.SetHeight(h - 6)
+		m.filePicker.SetHeight(h - 8)
 
 		focusedColStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder(), true).
@@ -222,30 +222,29 @@ func (m model) applyVarHighlights(ci int) model {
 func (m model) View() string {
 	var left, middle, right string
 
-	// Create wrapper style that truncates content
-	wrapStyle := lipgloss.NewStyle().
-		MaxWidth(m.varsList.Width() - 4) // Use list width minus padding/borders
+	// Create a wrapper style that truncates content
+	wrapStyle := lipgloss.NewStyle().MaxWidth(m.varsList.Width() - 4)
+	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).MarginTop(1)
+	helpText := "w: write file | s: write symlink"
 
 	if m.focusedList == 0 {
 		left = focusedColStyle.Render(m.varsList.View())
 		middle = blurredColStyle.Render(m.colList.View())
-		right = blurredColStyle.Render(wrapStyle.Render(m.filePicker.View()))
+		rightContent := wrapStyle.Render(m.filePicker.View()) + "\n" + helpStyle.Render(helpText)
+		right = blurredColStyle.Render(wrapStyle.Render(rightContent))
 	} else if m.focusedList == 1 {
 		left = blurredColStyle.Render(m.varsList.View())
 		middle = focusedColStyle.Render(m.colList.View())
-		right = blurredColStyle.Render(wrapStyle.Render(m.filePicker.View()))
+		rightContent := wrapStyle.Render(m.filePicker.View()) + "\n" + helpStyle.Render(helpText)
+		right = blurredColStyle.Render(wrapStyle.Render(rightContent))
 	} else {
 		left = blurredColStyle.Render(m.varsList.View())
 		middle = blurredColStyle.Render(m.colList.View())
-		right = focusedColStyle.Render(wrapStyle.Render(m.filePicker.View()))
+		rightContent := wrapStyle.Render(m.filePicker.View()) + "\n" + helpStyle.Render(helpText)
+		right = focusedColStyle.Render(rightContent)
 	}
 
-	return lipgloss.JoinHorizontal(
-		lipgloss.Top,
-		left,
-		middle,
-		right,
-	)
+	return lipgloss.JoinHorizontal(lipgloss.Top, left, middle, right)
 }
 
 // main is the entry point of the program.
