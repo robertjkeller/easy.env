@@ -104,13 +104,26 @@ func (m model) Init() tea.Cmd {
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
-	// 1) window‐resize + quit/focus logic
 	if ws, ok := msg.(tea.WindowSizeMsg); ok {
 		w, h := ws.Width, ws.Height
-		m.varsList.SetSize(w/3-1, h-5)
-		m.colList.SetSize(w/3-1, h-5)
+		colWidth := w/3 - 2
 
+		m.varsList.SetSize(colWidth, h-5)
+		m.colList.SetSize(colWidth, h-5)
 		m.filePicker.SetHeight(h - 6)
+
+		focusedColStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder(), true).
+			Padding(1).
+			BorderForeground(lipgloss.Color("69")).
+			Width(colWidth)
+
+		blurredColStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder(), true).
+			Padding(1).
+			BorderForeground(lipgloss.Color("253")).
+			Width(colWidth)
+
 		_, cmd := m.filePicker.Update(ws)
 		m.applyVarHighlights(m.focusedCollection)
 		cmds = append(cmds, cmd)
@@ -208,19 +221,25 @@ func (m model) applyVarHighlights(ci int) model {
 
 func (m model) View() string {
 	var left, middle, right string
+
+	// Create wrapper style that truncates content
+	wrapStyle := lipgloss.NewStyle().
+		MaxWidth(m.varsList.Width() - 4) // Use list width minus padding/borders
+
 	if m.focusedList == 0 {
 		left = focusedColStyle.Render(m.varsList.View())
 		middle = blurredColStyle.Render(m.colList.View())
-		right = blurredColStyle.Render(m.filePicker.View())
+		right = blurredColStyle.Render(wrapStyle.Render(m.filePicker.View()))
 	} else if m.focusedList == 1 {
 		left = blurredColStyle.Render(m.varsList.View())
 		middle = focusedColStyle.Render(m.colList.View())
-		right = blurredColStyle.Render(m.filePicker.View())
+		right = blurredColStyle.Render(wrapStyle.Render(m.filePicker.View()))
 	} else {
 		left = blurredColStyle.Render(m.varsList.View())
 		middle = blurredColStyle.Render(m.colList.View())
-		right = focusedColStyle.Render(m.filePicker.View())
+		right = focusedColStyle.Render(wrapStyle.Render(m.filePicker.View()))
 	}
+
 	return lipgloss.JoinHorizontal(
 		lipgloss.Top,
 		left,
